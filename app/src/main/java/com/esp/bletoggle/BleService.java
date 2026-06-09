@@ -37,6 +37,10 @@ public class BleService extends Service {
     public static final String ACTION_TOGGLE           = "TOGGLE";
     public static final String ACTION_STOP             = "STOP";
 
+    // Akcje rozgłoszeniowe do komunikacji z MainActivity
+    public static final String BROADCAST_BLE_BUSY = "com.esp.bletoggle.BLE_BUSY";
+    public static final String BROADCAST_BLE_FREE = "com.esp.bletoggle.BLE_FREE";
+
     private static final String CHANNEL_ID   = "ble_toggle_channel";
     private static final int    NOTIF_ID     = 1001;
 
@@ -96,6 +100,7 @@ public class BleService extends Service {
             return;
         }
         isBusy = true;
+        sendUiStatus(BROADCAST_BLE_BUSY); // Informujemy UI o blokadzie
         disconnectGatt();
 
         BluetoothManager bm = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
@@ -126,10 +131,10 @@ public class BleService extends Service {
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 Log.d(TAG, "Połączono – odkrywam serwisy");
                 updateNotification("🔗 Połączono – wysyłam...");
-                gatt.discoverServices();
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.d(TAG, "Rozłączono");
                 isBusy = false;
+                sendUiStatus(BROADCAST_BLE_FREE); // Odblokowanie UI
             }
         }
 
@@ -164,6 +169,7 @@ public class BleService extends Service {
             // Rozłącz po chwili i wróć do stanu gotowości
             handler.postDelayed(() -> {
                 disconnectGatt();
+                sendUiStatus(BROADCAST_BLE_FREE); // Odblokowanie UI
                 isBusy = false;
                 updateNotification("Gotowy – naciśnij aby przełączyć LED");
             }, 800);
@@ -182,9 +188,15 @@ public class BleService extends Service {
         Log.e(TAG, msg);
         disconnectGatt();
         isBusy = false;
+        sendUiStatus(BROADCAST_BLE_FREE); // Odblokowanie UI w przypadku błędu
         updateNotification("❌ " + msg);
         handler.postDelayed(() ->
             updateNotification("Gotowy – naciśnij aby przełączyć LED"), 3000);
+    }
+
+    private void sendUiStatus(String action) {
+        Intent intent = new Intent(action);
+        sendBroadcast(intent);
     }
 
     // ── Powiadomienie ─────────────────────────────────────────────
@@ -202,19 +214,16 @@ public class BleService extends Service {
     }
 
     private Notification buildNotification(String status) {
-        // Intent: otwórz apkę
         Intent openApp = new Intent(this, MainActivity.class);
         openApp.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent piOpen = PendingIntent.getActivity(this, 0, openApp,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        // Intent: przełącz LED (przycisk w powiadomieniu)
         Intent toggleIntent = new Intent(this, BleService.class);
         toggleIntent.setAction(ACTION_TOGGLE);
         PendingIntent piToggle = PendingIntent.getService(this, 1, toggleIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        // Intent: zatrzymaj serwis
         Intent stopIntent = new Intent(this, BleService.class);
         stopIntent.setAction(ACTION_STOP);
         PendingIntent piStop = PendingIntent.getService(this, 2, stopIntent,
