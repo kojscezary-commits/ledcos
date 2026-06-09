@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace 'com.esp.bletoggle2'
+    namespace 'com.esp.bletoggle3'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.esp.bletoggle2"
+        applicationId "com.esp.bletoggle3"
         minSdk 23
         targetSdk 34
         versionCode 1
@@ -27,7 +27,7 @@ android {
     }
     applicationVariants.all { variant ->
         variant.outputs.all {
-            outputFileName = "BLEToggle2-${variant.buildType.name}.apk"
+            outputFileName = "BLELEDTOGGLE-${variant.buildType.name}.apk"
         }
     }
 }
