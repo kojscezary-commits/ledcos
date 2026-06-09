@@ -1,10 +1,7 @@
 package com.esp.bletoggle;
 
 import android.Manifest;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -21,23 +18,6 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int PERMISSION_REQUEST_CODE = 100;
     private TextView statusText;
-    private Button toggleButton;
-
-    // Odbiornik nasłuchujący komunikatów z serwisu tła
-    private final BroadcastReceiver bleReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (intent.getAction() == null) return;
-
-            if (intent.getAction().equals(BleService.BROADCAST_BLE_BUSY)) {
-                toggleButton.setEnabled(false); // Blokada przycisku
-                statusText.setText("⏳ Łączę z ESP...");
-            } else if (intent.getAction().equals(BleService.BROADCAST_BLE_FREE)) {
-                toggleButton.setEnabled(true);  // Aktywacja przycisku
-                statusText.setText("✅ Gotowy – naciśnij aby przełączyć LED");
-            }
-        }
-    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,7 +25,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         statusText = findViewById(R.id.statusText);
-        toggleButton = findViewById(R.id.toggleButton);
+        Button toggleButton = findViewById(R.id.toggleButton);
         Button startServiceButton = findViewById(R.id.startServiceButton);
 
         toggleButton.setOnClickListener(v -> sendBleCommand());
@@ -56,26 +36,6 @@ public class MainActivity extends AppCompatActivity {
         });
 
         requestPermissions();
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(BleService.BROADCAST_BLE_BUSY);
-        filter.addAction(BleService.BROADCAST_BLE_FREE);
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(bleReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            registerReceiver(bleReceiver, filter);
-        }
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        unregisterReceiver(bleReceiver);
     }
 
     private void requestPermissions() {
@@ -125,6 +85,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void sendBleCommand() {
+        statusText.setText("⏳ Łączę z ESP...");
         Intent serviceIntent = new Intent(this, BleService.class);
         serviceIntent.setAction(BleService.ACTION_TOGGLE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -134,3 +95,4 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 }
+
