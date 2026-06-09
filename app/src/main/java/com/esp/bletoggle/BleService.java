@@ -28,7 +28,7 @@ public class BleService extends Service {
     private static final String TAG = "BleService";
 
     // ── Dane ESP ──────────────────────────────────────────────────
-    private static final String ESP_ADDRESS   = "E0:72:A1:70:EB:4E";
+    private static final String ESP_ADDRESS   = "A0:F2:62:B2:F1:A2";
     private static final UUID SERVICE_UUID    = UUID.fromString("6E400001-B5A3-F393-E0A9-E50E24DCCA9E");
     private static final UUID CHAR_UUID       = UUID.fromString("6E400002-B5A3-F393-E0A9-E50E24DCCA9E");
     // ─────────────────────────────────────────────────────────────
@@ -36,6 +36,10 @@ public class BleService extends Service {
     public static final String ACTION_START_FOREGROUND = "START_FOREGROUND";
     public static final String ACTION_TOGGLE           = "TOGGLE";
     public static final String ACTION_STOP             = "STOP";
+
+    // Broadcasta do MainActivity – informuje o stanie busy
+    public static final String ACTION_BUSY_CHANGED     = "com.esp.bletoggle2.BUSY_CHANGED";
+    public static final String EXTRA_IS_BUSY           = "is_busy";
 
     private static final String CHANNEL_ID   = "ble_toggle_channel";
     private static final int    NOTIF_ID     = 1001;
@@ -67,6 +71,10 @@ public class BleService extends Service {
                 startForegroundWithNotification("Gotowy – naciśnij aby przełączyć LED");
                 break;
             case ACTION_TOGGLE:
+                if (isBusy) {
+                    Log.d(TAG, "Już w trakcie – ignoruję kliknięcie");
+                    return START_STICKY;
+                }
                 startForegroundWithNotification("⏳ Łączę z ESP...");
                 connectAndSend();
                 break;
@@ -90,12 +98,16 @@ public class BleService extends Service {
 
     // ── BLE ───────────────────────────────────────────────────────
 
+    private void setBusy(boolean busy) {
+        isBusy = busy;
+        // Powiadom MainActivity o zmianie stanu
+        Intent broadcast = new Intent(ACTION_BUSY_CHANGED);
+        broadcast.putExtra(EXTRA_IS_BUSY, busy);
+        sendBroadcast(broadcast);
+    }
+
     private void connectAndSend() {
-        if (isBusy) {
-            Log.d(TAG, "Już w trakcie połączenia – ignoruję");
-            return;
-        }
-        isBusy = true;
+        setBusy(true);
         disconnectGatt();
 
         BluetoothManager bm = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
@@ -129,7 +141,7 @@ public class BleService extends Service {
                 gatt.discoverServices();
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.d(TAG, "Rozłączono");
-                isBusy = false;
+                setBusy(false);
             }
         }
 
@@ -164,9 +176,13 @@ public class BleService extends Service {
             // Rozłącz po chwili i wróć do stanu gotowości
             handler.postDelayed(() -> {
                 disconnectGatt();
-                isBusy = false;
                 updateNotification("Gotowy – naciśnij aby przełączyć LED");
             }, 800);
+            // Przycisk Przełącz wraca dopiero po 2.2s
+            handler.postDelayed(() -> {
+                setBusy(false);
+                updateNotification("Gotowy – naciśnij aby przełączyć LED");
+            }, 2200);
         }
     };
 
@@ -181,7 +197,7 @@ public class BleService extends Service {
     private void finishWithError(String msg) {
         Log.e(TAG, msg);
         disconnectGatt();
-        isBusy = false;
+        setBusy(false);
         updateNotification("❌ " + msg);
         handler.postDelayed(() ->
             updateNotification("Gotowy – naciśnij aby przełączyć LED"), 3000);
@@ -202,34 +218,37 @@ public class BleService extends Service {
     }
 
     private Notification buildNotification(String status) {
-        // Intent: otwórz apkę
         Intent openApp = new Intent(this, MainActivity.class);
         openApp.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent piOpen = PendingIntent.getActivity(this, 0, openApp,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        // Intent: przełącz LED (przycisk w powiadomieniu)
         Intent toggleIntent = new Intent(this, BleService.class);
         toggleIntent.setAction(ACTION_TOGGLE);
         PendingIntent piToggle = PendingIntent.getService(this, 1, toggleIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        // Intent: zatrzymaj serwis
         Intent stopIntent = new Intent(this, BleService.class);
         stopIntent.setAction(ACTION_STOP);
         PendingIntent piStop = PendingIntent.getService(this, 2, stopIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        return new NotificationCompat.Builder(this, CHANNEL_ID)
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("ESP LED")
                 .setContentText(status)
                 .setSmallIcon(android.R.drawable.ic_menu_send)
                 .setContentIntent(piOpen)
                 .setOngoing(true)
-                .setSilent(true)
-                .addAction(android.R.drawable.ic_media_play, "🔁 Przełącz", piToggle)
-                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", piStop)
-                .build();
+                .setSilent(true);
+
+        // Przycisk Przełącz tylko gdy nie jest busy
+        if (!isBusy) {
+            builder.addAction(android.R.drawable.ic_media_play, "🔁 Przełącz", piToggle);
+        }
+
+        builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", piStop);
+
+        return builder.build();
     }
 
     private void startForegroundWithNotification(String status) {
@@ -241,3 +260,4 @@ public class BleService extends Service {
         if (nm != null) nm.notify(NOTIF_ID, buildNotification(status));
     }
 }
+
