@@ -28,7 +28,7 @@ public class BleService extends Service {
     private static final String TAG = "BleService";
 
     // ── Dane ESP ──────────────────────────────────────────────────
-    private static final String ESP_ADDRESS   = "A0:F2:62:B2:F1:A2";
+    private static final String ESP_ADDRESS   = "E0:72:A1:70:EB:4E";
     private static final UUID SERVICE_UUID    = UUID.fromString("6E400001-B5A3-F393-E0A9-E50E24DCCA9E");
     private static final UUID CHAR_UUID       = UUID.fromString("6E400002-B5A3-F393-E0A9-E50E24DCCA9E");
     // ─────────────────────────────────────────────────────────────
@@ -38,7 +38,7 @@ public class BleService extends Service {
     public static final String ACTION_STOP             = "STOP";
 
     // Broadcasta do MainActivity – informuje o stanie busy
-    public static final String ACTION_BUSY_CHANGED     = "com.esp.bletoggle2.BUSY_CHANGED";
+    public static final String ACTION_BUSY_CHANGED     = "com.esp.bletoggle3.BUSY_CHANGED";
     public static final String EXTRA_IS_BUSY           = "is_busy";
 
     private static final String CHANNEL_ID   = "ble_toggle_channel";
