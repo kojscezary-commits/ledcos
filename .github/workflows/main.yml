@@ -27,5 +27,5 @@ jobs:
       - name: Wgraj APK jako artefakt
         uses: actions/upload-artifact@v4
         with:
-          name: ESP-LED-apk
+          name: bimbom-apk
           path: app/build/outputs/apk/debug/*.apk
