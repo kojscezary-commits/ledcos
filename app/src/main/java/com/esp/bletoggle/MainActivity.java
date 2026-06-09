@@ -1,7 +1,10 @@
 package com.esp.bletoggle3;
 
 import android.Manifest;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -18,6 +21,17 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int PERMISSION_REQUEST_CODE = 100;
     private TextView statusText;
+    private Button toggleButton;
+
+    // Odbiera broadcast od BleService o stanie busy
+    private final BroadcastReceiver busyReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            boolean busy = intent.getBooleanExtra(BleService.EXTRA_IS_BUSY, false);
+            toggleButton.setEnabled(!busy);
+            toggleButton.setAlpha(busy ? 0.4f : 1.0f);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -25,7 +39,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         statusText = findViewById(R.id.statusText);
-        Button toggleButton = findViewById(R.id.toggleButton);
+        toggleButton = findViewById(R.id.toggleButton);
         Button startServiceButton = findViewById(R.id.startServiceButton);
 
         toggleButton.setOnClickListener(v -> sendBleCommand());
@@ -36,6 +50,25 @@ public class MainActivity extends AppCompatActivity {
         });
 
         requestPermissions();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Rejestruj receiver gdy aktywność jest widoczna
+        IntentFilter filter = new IntentFilter(BleService.ACTION_BUSY_CHANGED);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(busyReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(busyReceiver, filter);
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // Wyrejestruj receiver gdy aktywność niewidoczna
+        unregisterReceiver(busyReceiver);
     }
 
     private void requestPermissions() {
