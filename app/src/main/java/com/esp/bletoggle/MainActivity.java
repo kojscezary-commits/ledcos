@@ -1,4 +1,4 @@
-package com.esp.bletoggle;
+package com.esp.bletoggle2;
 
 import android.Manifest;
 import android.content.Intent;
